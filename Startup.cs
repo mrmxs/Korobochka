@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Korobochka.Repositories;
+using Korobochka.Services;
 
 namespace Korobochka
 {
@@ -32,6 +33,12 @@ namespace Korobochka
                 Configuration.GetSection(nameof(GoogleSheetsSettings)));
             services.AddSingleton<IGoogleSheetsSettings>(sp =>
                 sp.GetRequiredService<IOptions<GoogleSheetsSettings>>().Value);
+
+            services
+                .AddSingleton<PlacesRepository>();
+
+            services
+                .AddSingleton<PlacesService>();
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
