@@ -13,7 +13,9 @@ using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 
+using Korobochka.Models;
 using Korobochka.Repositories; // TODO replace using of googleSheetsSettings to repositories
+using Korobochka.Services;
 
 namespace Korobochka.Controllers
 {
@@ -31,11 +33,16 @@ namespace Korobochka.Controllers
 
         private readonly ILogger<GoogleSheetTestController> _logger;
 
+        private PlacesService _placesService;
 
-        public GoogleSheetTestController(IGoogleSheetsSettings gSheetsSettings, ILogger<GoogleSheetTestController> logger)
+        public GoogleSheetTestController(
+            IGoogleSheetsSettings gSheetsSettings,
+            ILogger<GoogleSheetTestController> logger,
+            PlacesService placesService)
         {
             _logger = logger;
             _gSheetsSettings = gSheetsSettings;
+            _placesService = placesService;
         }
 
         [HttpGet]
@@ -91,6 +98,12 @@ namespace Korobochka.Controllers
             }
             return new string[] { "No ", "data ", "found." };
 
+        }
+
+        [HttpPut]
+        public IEnumerable<Place> Put()
+        {
+            return _placesService.Get();
         }
     }
 }
