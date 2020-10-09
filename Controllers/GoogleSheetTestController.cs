@@ -27,12 +27,10 @@ namespace Korobochka.Controllers
         private PlacesService _placesService;
 
         public GoogleSheetTestController(
-            // IGoogleSheetsSettings gSheetsSettings,
             ILogger<GoogleSheetTestController> logger,
             PlacesService placesService)
         {
             _logger = logger;
-            // _gSheetsSettings = gSheetsSettings;
             _placesService = placesService;
         }
 
@@ -41,7 +39,6 @@ namespace Korobochka.Controllers
         {
             try
             {
-                // // TODO if null sequence
                 return Ok(_placesService.Get().Select(item => (PlaceDTO)item));
             }
             catch (Exception e)
@@ -71,7 +68,7 @@ namespace Korobochka.Controllers
         {
             try
             {
-                // // TODO if wrong data
+                // TODO if wrong data
                 return Ok((PlaceDTO)(_placesService.Create((Place)value))); //spreadsheetinfo - range
 
             }

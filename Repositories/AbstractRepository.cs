@@ -96,11 +96,13 @@ namespace Korobochka.Repositories
 
         public virtual IEnumerable<T> Get()
         {
-            var result = this.GSheetCollection()
-            .Select(row => new T().FromValues<T>(row))
-            .Where<T>(t => t != null);
+            var result = this.GSheetCollection();
 
-            return result;
+            var res = result?
+                .Where(row => row.Any())?
+                .Select(row => new T().FromValues<T>(row));
+
+            return res ?? new List<T>();
         }
 
         public virtual T Get(int id) =>
