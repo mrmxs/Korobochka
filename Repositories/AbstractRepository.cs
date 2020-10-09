@@ -8,6 +8,7 @@ using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
+using GSheets = Google.Apis.Sheets.v4.SpreadsheetsResource.ValuesResource;
 using Korobochka.Models;
 
 namespace Korobochka.Repositories
@@ -29,7 +30,8 @@ namespace Korobochka.Repositories
             const string TokenPath = "token.json/client_secret.json"; //TODO move to settings
             // If modifying these scopes, delete your previously saved credentials
             // at ~/.credentials/sheets.googleapis.com-dotnet-quickstart.json
-            string[] scopes = { SheetsService.Scope.SpreadsheetsReadonly };
+            // string[] scopes = { SheetsService.Scope.SpreadsheetsReadonly };
+            string[] scopes = { SheetsService.Scope.Spreadsheets };
             using (var stream =
                 new FileStream(TokenPath, FileMode.Open, FileAccess.Read))
             {
@@ -54,33 +56,69 @@ namespace Korobochka.Repositories
             _sheetRange = sheetRange;
         }
 
+        protected IList<IList<object>> GSheetCollection() //TODO to external file GSheetDriver
+        {
+            return _service.Spreadsheets.Values
+                .Get(_spreadsheetId, _sheetRange)
+                .Execute()
+                .Values;
+        }
+
+        protected IList<IList<object>> GSheetGetRange(string range) //TODO to external file GSheetDriver
+        {
+            return _service.Spreadsheets.Values
+                .Get(_spreadsheetId, range)
+                .Execute()
+                .Values;
+        }
+
+        protected UpdateValuesResponse GSheetAppend(List<IList<object>> values)
+        {
+            ValueRange valueRange = new ValueRange();
+            valueRange.Values = values;
+            var range = _sheetRange.Split('!')[0];
+
+            GSheets.AppendRequest request =
+                _service.Spreadsheets.Values
+                .Append(valueRange, _spreadsheetId, range);
+            request.ValueInputOption = GSheets.AppendRequest.ValueInputOptionEnum.RAW;
+            AppendValuesResponse response = request.Execute();
+
+            return response.Updates;
+        }
+
+        protected int GSheetMaxId()
+        {
+            //TODO get MAX(A:A) from sheets or GetByDataFilter()
+            return new T().FromValues<T>(
+                this.GSheetCollection().Last()).Id;
+        }
+
         public virtual IEnumerable<T> Get()
         {
-            SpreadsheetsResource.ValuesResource.GetRequest request =
-                _service.Spreadsheets.Values.Get(_spreadsheetId, _sheetRange);
-            ValueRange response = request.Execute();
-            var values = response.Values.Select(row =>
-                row.Select(cell => cell.ToString())
-                    .ToList()).ToList();
-
-            var result = values.Select(row =>
-                new T().FromValues<T>(row)).Where<T>(t => t != null);
+            var result = this.GSheetCollection()
+            .Select(row => new T().FromValues<T>(row))
+            .Where<T>(t => t != null);
 
             return result;
         }
 
         public virtual T Get(int id) =>
-            this.Get().ToList().Find(item => item.Id == id);
+            this.Get().ToList().Find(item => item?.Id == id);
 
         public virtual T Create(T item)
         {
-            throw new NotImplementedException();
+            item.Id = this.GSheetMaxId() + 1;
+            // TODO order
 
-            // // TODO if id not null
-            // item.CreatedAt = DateTime.Now;
+            var appended = this.GSheetAppend(
+                values: new List<IList<object>> { item.ToValues<T>(item) });
+            var appendedValues = this.GSheetGetRange(appended.UpdatedRange).First();
 
-            // _collection.InsertOne(item);
-            // return item;
+            var result = new T().FromValues<T>(appendedValues);
+            result.GSheetRange = appended.UpdatedRange;
+
+            return result;
         }
 
         public virtual T Update(int id, T itemIn)

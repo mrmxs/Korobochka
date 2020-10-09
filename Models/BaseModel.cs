@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 namespace Korobochka.Models
 {
@@ -9,6 +10,7 @@ namespace Korobochka.Models
     {
         [Required]
         public int Id { get; set; }
+        public string GSheetRange { get; internal set; }
         // public DateTime CreatedAt { get; set; }
         // public DateTime? EditedAt { get; set; }
 
@@ -19,6 +21,7 @@ namespace Korobochka.Models
 
             var thisTypeObj = obj as BaseModel;
             if (thisTypeObj.Id != this.Id) return false;
+            if (thisTypeObj.GSheetRange != this.GSheetRange) return false;
             // if (thisTypeObj.CreatedAt != this.CreatedAt) return false;
             // if (thisTypeObj.EditedAt != this.EditedAt) return false;
 
@@ -27,11 +30,15 @@ namespace Korobochka.Models
 #nullable disable
 
         public abstract T Merge<T>(T itemIn) where T : BaseModel;
-        public virtual T FromValues<T>(IList<string> values) where T : BaseModel
+        public virtual T FromValues<T>(IList<object> values) where T : BaseModel
         {
-            this.Id = int.Parse(values[0]);
+            this.Id = int.Parse(values[0].ToString());
 
             return this as T;
+        }
+        public virtual List<object> ToValues<T>(T t) where T : BaseModel
+        {
+            return new List<object> { this.Id.ToString() };
         }
     }
 }
