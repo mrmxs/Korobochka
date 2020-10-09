@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Korobochka.Repositories;
 using Korobochka.Services;
+using Microsoft.AspNetCore.Mvc.Formatters;
 
 namespace Korobochka
 {
@@ -40,7 +41,13 @@ namespace Korobochka
             services
                 .AddSingleton<PlacesService>();
 
-            services.AddControllers();
+            services.AddControllers(opt =>  // or AddMvc()
+            {
+                // remove formatter that turns nulls into 204 - No Content responses
+                // this formatter breaks Angular's Http response JSON parsing
+                opt.OutputFormatters.RemoveType<HttpNoContentOutputFormatter>();
+            });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Korobochka", Version = "v1" });
