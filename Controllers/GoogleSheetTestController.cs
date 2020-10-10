@@ -24,11 +24,11 @@ namespace Korobochka.Controllers
     public class GoogleSheetTestController : ControllerBase
     {
         private readonly ILogger<GoogleSheetTestController> _logger;
-        private PlacesService _placesService;
+        private PlacesCRUDService _placesService;
 
         public GoogleSheetTestController(
             ILogger<GoogleSheetTestController> logger,
-            PlacesService placesService)
+            PlacesCRUDService placesService)
         {
             _logger = logger;
             _placesService = placesService;

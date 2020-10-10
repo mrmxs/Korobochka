@@ -39,12 +39,11 @@ namespace Korobochka
                 .AddSingleton<PlacesRepository>();
 
             services
-                .AddSingleton<PlacesService>();
+                .AddSingleton<PlacesCRUDService>();
 
             services.AddControllers(opt =>  // or AddMvc()
             {
                 // remove formatter that turns nulls into 204 - No Content responses
-                // this formatter breaks Angular's Http response JSON parsing
                 opt.OutputFormatters.RemoveType<HttpNoContentOutputFormatter>();
             });
 

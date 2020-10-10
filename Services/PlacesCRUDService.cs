@@ -3,9 +3,9 @@ using Korobochka.Repositories;
 
 namespace Korobochka.Services
 {
-    public class PlacesService : AbstractCRUDService<Place>
+    public class PlacesCRUDService : AbstractCRUDService<Place>
     {
-        public PlacesService(PlacesRepository repository)
+        public PlacesCRUDService(PlacesRepository repository)
             : base(repository)
         {
         }
