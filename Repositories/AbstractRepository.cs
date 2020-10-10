@@ -19,8 +19,12 @@ namespace Korobochka.Repositories
         private readonly SheetsService _service;
         private readonly string _spreadsheetId;
         private readonly string _sheetRange;
+        private readonly int _sheetId;
 
-        public AbstractRepository(IGoogleSheetsSettings settings, string sheetRange) //TODO mb sheetRange is obsolete
+        public AbstractRepository(
+            IGoogleSheetsSettings settings,
+            string sheetRange,
+            int sheetId) //TODO mb sheetRange is obsolete
         {
             UserCredential credential;
 
@@ -54,6 +58,7 @@ namespace Korobochka.Repositories
 
             _spreadsheetId = settings.SpreadsheetId;
             _sheetRange = sheetRange;
+            _sheetId = sheetId;
         }
 
         protected IList<IList<object>> GSheetCollection() //TODO to external file GSheetDriver
@@ -100,6 +105,29 @@ namespace Korobochka.Repositories
             UpdateValuesResponse response = update.Execute();
 
             return response;
+        }
+
+        protected void GSheetRemoveRow(int index)
+        {
+            Request requestBody = new Request()
+            {
+                DeleteDimension = new DeleteDimensionRequest()
+                {
+                    Range = new DimensionRange()
+                    {
+                        SheetId = _sheetId,
+                        Dimension = "ROWS",
+                        StartIndex = index - 1,
+                        EndIndex = index,
+                    }
+                }
+            };
+
+            BatchUpdateSpreadsheetRequest request = new BatchUpdateSpreadsheetRequest();
+            request.Requests = new List<Request> { requestBody };
+            BatchUpdateSpreadsheetResponse response = new SpreadsheetsResource
+                .BatchUpdateRequest(_service, request, _spreadsheetId)
+                .Execute();
         }
 
         protected IList<object> GSheetSmartGetByID(int id)
@@ -184,7 +212,7 @@ namespace Korobochka.Repositories
             // TODO place for itemHistory here
 
             var newValues = newItem.ToValues<T>();
-            var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange);
+            var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange); // valuesById[7]
             var response = this.GSheetUpdate(newValues, range);
             var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
 
@@ -194,18 +222,19 @@ namespace Korobochka.Repositories
             return updatedData;
         }
 
-        // public virtual void Remove(T itemIn) =>
-        //     _collection.DeleteOne(item => item.Id == itemIn.Id);
         public virtual void Remove(T itemIn)
         {
             throw new NotImplementedException();
         }
 
-        // public virtual void Remove(int id) =>
-        //     _collection.DeleteOne(item => item.Id == id);
         public virtual void Remove(int id)
         {
-            throw new NotImplementedException();
+            var valuesById = this.GSheetSmartGetByID(id);
+            if (null == valuesById) throw new Exception($"Not existing id");
+
+            var rowIndex = (int)valuesById[7];
+
+            this.GSheetRemoveRow(rowIndex);
         }
     }
 }

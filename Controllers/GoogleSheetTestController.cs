@@ -93,6 +93,22 @@ namespace Korobochka.Controllers
             }
         }
 
+        [HttpDelete("{id}")]
+        public /*override*/ ActionResult<PlaceDTO> Delete(int id)
+        {
+            try
+            {
+                // TODO if wrong id
+                // TODO check dpendencies, dont remove if stuff here
+                _placesService.Remove(id);
+                return Ok();
+            }
+            catch (Exception e) //TODO custom exceptions
+            {
+                return CustomBadRequest(e.Message);
+            }
+        }
+
         //TODO to BaseController
         protected BadRequestObjectResult CustomBadRequest(object error)
         {
