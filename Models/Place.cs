@@ -78,9 +78,9 @@ namespace Korobochka.Models
             }
         }
 
-        public override List<object> ToValues<T>(T t)
+        public override List<object> ToValues<T>()
         {
-            var result = base.ToValues<T>(t);
+            var result = base.ToValues<T>();
             result.AddRange(new List<object> {
                 this.Name,
                 String.Join(',', this.Owner),

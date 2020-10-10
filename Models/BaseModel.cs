@@ -36,7 +36,7 @@ namespace Korobochka.Models
 
             return this as T;
         }
-        public virtual List<object> ToValues<T>(T t) where T : BaseModel
+        public virtual List<object> ToValues<T>() where T : BaseModel
         {
             return new List<object> { this.Id.ToString() };
         }

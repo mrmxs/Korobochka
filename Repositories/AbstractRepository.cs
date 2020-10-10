@@ -130,6 +130,18 @@ namespace Korobochka.Repositories
                 this.GSheetCollection().Last()).Id;
         }
 
+        protected int GSheetSmartMaxId()
+        {
+            var sheetList = _sheetRange.Split('!')[0];
+            var ids = _service.Spreadsheets.Values
+                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Execute().Values;
+            if (ids == null) return 0;
+            var result = ids!.Select(row => int.Parse(row[0].ToString())).Max();
+
+            return result;
+        }
+
         public virtual IEnumerable<T> Get()
         {
             var result = this.GSheetCollection();
@@ -146,11 +158,11 @@ namespace Korobochka.Repositories
 
         public virtual T Create(T item)
         {
-            item.Id = this.GSheetMaxId() + 1;
+            item.Id = this.GSheetSmartMaxId() + 1;
             // TODO order
 
             var appended = this.GSheetAppend(
-                values: new List<IList<object>> { item.ToValues<T>(item) });
+                values: new List<IList<object>> { item.ToValues<T>() });
             var appendedValues = this.GSheetGetRange(appended.UpdatedRange).First();
 
             var result = new T().FromValues<T>(appendedValues);
@@ -171,7 +183,7 @@ namespace Korobochka.Repositories
 
             // TODO place for itemHistory here
 
-            var newValues = newItem.ToValues<T>(newItem);
+            var newValues = newItem.ToValues<T>();
             var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange);
             var response = this.GSheetUpdate(newValues, range);
             var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
