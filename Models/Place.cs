@@ -68,6 +68,7 @@ namespace Korobochka.Models
                         values[5].Replace(',', '.'),
                         CultureInfo.InvariantCulture);
                 this.Order = int.Parse(values[6]);
+                if (8 == values.Count) this.GSheetRange = values[7];
 
                 return base.FromValues<T>(objValues);
             }
@@ -84,9 +85,9 @@ namespace Korobochka.Models
                 this.Name,
                 String.Join(',', this.Owner),
                 this.Address,
-                this.Latitude.ToString(),
+                this.Latitude,
                 this.Longitude,
-                this.Order.ToString()
+                this.Order
             });
 
             return result;

@@ -63,7 +63,6 @@ namespace Korobochka.Repositories
                 .Execute()
                 .Values;
         }
-
         protected IList<IList<object>> GSheetGetRange(string range) //TODO to external file GSheetDriver
         {
             return _service.Spreadsheets.Values
@@ -87,6 +86,43 @@ namespace Korobochka.Repositories
             return response.Updates;
         }
 
+        protected UpdateValuesResponse GSheetUpdate(List<object> values, string range)
+        {
+            // String range2 = "<my page name>!F5";  // update cell F5 
+            ValueRange valueRange = new ValueRange();
+            valueRange.MajorDimension = "ROWS";//COLUMNS
+            // var oblist = new List<object>() { "My Cell Text" };
+            valueRange.Values = new List<IList<object>> { values };
+
+            GSheets.UpdateRequest update =
+                _service.Spreadsheets.Values.Update(valueRange, _spreadsheetId, range);
+            update.ValueInputOption = GSheets.UpdateRequest.ValueInputOptionEnum.RAW;
+            UpdateValuesResponse response = update.Execute();
+
+            return response;
+        }
+
+        protected IList<object> GSheetSmartGetByID(int id)
+        {
+            var sheetList = _sheetRange.Split('!')[0];
+            var ids = _service.Spreadsheets.Values
+                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Execute().Values;
+
+            var rowIndex = ids?
+                .Select(row => int.Parse(row[0].ToString())).ToList()
+                .IndexOf(id) + 2;
+            if (2 > rowIndex) return null;
+
+            var range = _sheetRange.Replace("!A2", "!A" + rowIndex);
+            var result = _service.Spreadsheets.Values
+                .Get(_spreadsheetId, range)
+                .Execute().Values[0];
+            result.Add(rowIndex);
+
+            return result;
+        }
+
         protected int GSheetMaxId()
         {
             //TODO get MAX(A:A) from sheets or GetByDataFilter()
@@ -105,7 +141,7 @@ namespace Korobochka.Repositories
             return res ?? new List<T>();
         }
 
-        public virtual T Get(int id) =>
+        public virtual T Get(int id) =>  // TODO optimise to search through index
             this.Get().ToList().Find(item => item?.Id == id);
 
         public virtual T Create(T item)
@@ -125,17 +161,25 @@ namespace Korobochka.Repositories
 
         public virtual T Update(int id, T itemIn)
         {
-            throw new NotImplementedException();
+            var valuesById = this.GSheetSmartGetByID(id);
+            if (null == valuesById) throw new Exception($"Not existing id");
 
-            // var oldItem = this.Get(id);
-            // var newItem = oldItem.Merge(itemIn);
+            var oldItem = new T().FromValues<T>(valuesById);
+            var newItem = oldItem.Merge(itemIn);
 
-            // if (oldItem.MemberwiseEquals(newItem)) return oldItem;
+            if (oldItem.MemberwiseEquals(newItem)) return oldItem;
 
-            // newItem.EditedAt = DateTime.Now;
-            // _collection.ReplaceOne(item => item.Id == id, newItem);
+            // TODO place for itemHistory here
 
-            // return this.Get(id);
+            var newValues = newItem.ToValues<T>(newItem);
+            var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange);
+            var response = this.GSheetUpdate(newValues, range);
+            var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
+
+            var updatedData = new T().FromValues<T>(updatedValues);
+            updatedData.GSheetRange = response.UpdatedRange;
+
+            return updatedData;
         }
 
         // public virtual void Remove(T itemIn) =>

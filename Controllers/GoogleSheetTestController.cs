@@ -78,6 +78,21 @@ namespace Korobochka.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public /*override*/ ActionResult<PlaceDTO> Put(int id, [FromBody] PlaceDTO value)
+        {
+            try
+            {
+                // TODO if wrong data?
+                var result = _placesService.Update(id, (Place)value);
+                return Ok((PlaceDTO)result);
+            }
+            catch (Exception e)
+            {
+                return CustomBadRequest(e.Message);
+            }
+        }
+
         //TODO to BaseController
         protected BadRequestObjectResult CustomBadRequest(object error)
         {
