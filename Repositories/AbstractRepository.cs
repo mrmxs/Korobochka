@@ -8,6 +8,7 @@ using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
+using GSheets = Google.Apis.Sheets.v4.SpreadsheetsResource.ValuesResource;
 using Korobochka.Models;
 
 namespace Korobochka.Repositories
@@ -29,7 +30,8 @@ namespace Korobochka.Repositories
             const string TokenPath = "token.json/client_secret.json"; //TODO move to settings
             // If modifying these scopes, delete your previously saved credentials
             // at ~/.credentials/sheets.googleapis.com-dotnet-quickstart.json
-            string[] scopes = { SheetsService.Scope.SpreadsheetsReadonly };
+            // string[] scopes = { SheetsService.Scope.SpreadsheetsReadonly };
+            string[] scopes = { SheetsService.Scope.Spreadsheets };
             using (var stream =
                 new FileStream(TokenPath, FileMode.Open, FileAccess.Read))
             {
@@ -54,48 +56,142 @@ namespace Korobochka.Repositories
             _sheetRange = sheetRange;
         }
 
-        public virtual IEnumerable<T> Get()
+        protected IList<IList<object>> GSheetCollection() //TODO to external file GSheetDriver
         {
-            SpreadsheetsResource.ValuesResource.GetRequest request =
-                _service.Spreadsheets.Values.Get(_spreadsheetId, _sheetRange);
-            ValueRange response = request.Execute();
-            var values = response.Values.Select(row =>
-                row.Select(cell => cell.ToString())
-                    .ToList()).ToList();
+            return _service.Spreadsheets.Values
+                .Get(_spreadsheetId, _sheetRange)
+                .Execute()
+                .Values;
+        }
+        protected IList<IList<object>> GSheetGetRange(string range) //TODO to external file GSheetDriver
+        {
+            return _service.Spreadsheets.Values
+                .Get(_spreadsheetId, range)
+                .Execute()
+                .Values;
+        }
 
-            var result = values.Select(row =>
-                new T().FromValues<T>(row)).Where<T>(t => t != null);
+        protected UpdateValuesResponse GSheetAppend(List<IList<object>> values)
+        {
+            ValueRange valueRange = new ValueRange();
+            valueRange.Values = values;
+            var range = _sheetRange.Split('!')[0];
+
+            GSheets.AppendRequest request =
+                _service.Spreadsheets.Values
+                .Append(valueRange, _spreadsheetId, range);
+            request.ValueInputOption = GSheets.AppendRequest.ValueInputOptionEnum.RAW;
+            AppendValuesResponse response = request.Execute();
+
+            return response.Updates;
+        }
+
+        protected UpdateValuesResponse GSheetUpdate(List<object> values, string range)
+        {
+            // String range2 = "<my page name>!F5";  // update cell F5 
+            ValueRange valueRange = new ValueRange();
+            valueRange.MajorDimension = "ROWS";//COLUMNS
+            // var oblist = new List<object>() { "My Cell Text" };
+            valueRange.Values = new List<IList<object>> { values };
+
+            GSheets.UpdateRequest update =
+                _service.Spreadsheets.Values.Update(valueRange, _spreadsheetId, range);
+            update.ValueInputOption = GSheets.UpdateRequest.ValueInputOptionEnum.RAW;
+            UpdateValuesResponse response = update.Execute();
+
+            return response;
+        }
+
+        protected IList<object> GSheetSmartGetByID(int id)
+        {
+            var sheetList = _sheetRange.Split('!')[0];
+            var ids = _service.Spreadsheets.Values
+                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Execute().Values;
+
+            var rowIndex = ids?
+                .Select(row => int.Parse(row[0].ToString())).ToList()
+                .IndexOf(id) + 2;
+            if (2 > rowIndex) return null;
+
+            var range = _sheetRange.Replace("!A2", "!A" + rowIndex);
+            var result = _service.Spreadsheets.Values
+                .Get(_spreadsheetId, range)
+                .Execute().Values[0];
+            result.Add(rowIndex);
 
             return result;
         }
 
-        public virtual T Get(int id) =>
-            this.Get().ToList().Find(item => item.Id == id);
+        protected int GSheetMaxId()
+        {
+            //TODO get MAX(A:A) from sheets or GetByDataFilter()
+            return new T().FromValues<T>(
+                this.GSheetCollection().Last()).Id;
+        }
+
+        protected int GSheetSmartMaxId()
+        {
+            var sheetList = _sheetRange.Split('!')[0];
+            var ids = _service.Spreadsheets.Values
+                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Execute().Values;
+            if (ids == null) return 0;
+            var result = ids!.Select(row => int.Parse(row[0].ToString())).Max();
+
+            return result;
+        }
+
+        public virtual IEnumerable<T> Get()
+        {
+            var result = this.GSheetCollection();
+
+            var res = result?
+                .Where(row => row.Any())?
+                .Select(row => new T().FromValues<T>(row));
+
+            return res ?? new List<T>();
+        }
+
+        public virtual T Get(int id) =>  // TODO optimise to search through index
+            this.Get().ToList().Find(item => item?.Id == id);
 
         public virtual T Create(T item)
         {
-            throw new NotImplementedException();
+            item.Id = this.GSheetSmartMaxId() + 1;
+            // TODO order
 
-            // // TODO if id not null
-            // item.CreatedAt = DateTime.Now;
+            var appended = this.GSheetAppend(
+                values: new List<IList<object>> { item.ToValues<T>() });
+            var appendedValues = this.GSheetGetRange(appended.UpdatedRange).First();
 
-            // _collection.InsertOne(item);
-            // return item;
+            var result = new T().FromValues<T>(appendedValues);
+            result.GSheetRange = appended.UpdatedRange;
+
+            return result;
         }
 
         public virtual T Update(int id, T itemIn)
         {
-            throw new NotImplementedException();
+            var valuesById = this.GSheetSmartGetByID(id);
+            if (null == valuesById) throw new Exception($"Not existing id");
 
-            // var oldItem = this.Get(id);
-            // var newItem = oldItem.Merge(itemIn);
+            var oldItem = new T().FromValues<T>(valuesById);
+            var newItem = oldItem.Merge(itemIn);
 
-            // if (oldItem.MemberwiseEquals(newItem)) return oldItem;
+            if (oldItem.MemberwiseEquals(newItem)) return oldItem;
 
-            // newItem.EditedAt = DateTime.Now;
-            // _collection.ReplaceOne(item => item.Id == id, newItem);
+            // TODO place for itemHistory here
 
-            // return this.Get(id);
+            var newValues = newItem.ToValues<T>();
+            var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange);
+            var response = this.GSheetUpdate(newValues, range);
+            var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
+
+            var updatedData = new T().FromValues<T>(updatedValues);
+            updatedData.GSheetRange = response.UpdatedRange;
+
+            return updatedData;
         }
 
         // public virtual void Remove(T itemIn) =>

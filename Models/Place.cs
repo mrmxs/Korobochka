@@ -49,31 +49,48 @@ namespace Korobochka.Models
             return edited as T;
         }
 
-        public override T FromValues<T>(IList<string> values)
+        public override T FromValues<T>(IList<object> objValues)
         {
             try
             {
+                var values = objValues.Select(cell => cell.ToString()).ToList();
+
                 this.Name = values[1];
                 this.Owner = values[2]
                     .Split(",").Select(r => int.Parse(r));//.ToArray();
                 this.Address = values[3];
-                this.Latitude = "" == values[4] ? null :                
+                this.Latitude = "" == values[4] ? null :
                     Double.Parse(
-                        values[4].Replace(',', '.'),                        
+                        values[4].Replace(',', '.'),
                         CultureInfo.InvariantCulture);
-                this.Longitude = "" == values[5] ? null : 
+                this.Longitude = "" == values[5] ? null :
                     Double.Parse(
                         values[5].Replace(',', '.'),
                         CultureInfo.InvariantCulture);
                 this.Order = int.Parse(values[6]);
+                if (8 == values.Count) this.GSheetRange = values[7];
 
-                return base.FromValues<T>(values);
+                return base.FromValues<T>(objValues);
             }
             catch (Exception e)
             {
                 return null;
             }
+        }
 
+        public override List<object> ToValues<T>()
+        {
+            var result = base.ToValues<T>();
+            result.AddRange(new List<object> {
+                this.Name,
+                String.Join(',', this.Owner),
+                this.Address,
+                this.Latitude,
+                this.Longitude,
+                this.Order
+            });
+
+            return result;
         }
     }
 }
