@@ -23,7 +23,7 @@ namespace Korobochka.Repositories
         private readonly int _sheetId;
 
         public AbstractRepository(
-            GoogleSheets.IDriver driver,
+            GoogleSheets.IClient driver,
             GoogleSheets.ISettings settings,
             string sheetRange,
             int sheetId) //TODO mb sheetRange is obsolete

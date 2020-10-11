@@ -9,7 +9,7 @@ using Google.Apis.Util.Store;
 
 namespace Korobochka.GoogleSheets
 {
-    public class Driver : IDriver
+    public class Client : IClient
     {
         #region CONSTs
         const string TOKEN_PATH = "token.json/client_secret.json";
@@ -21,7 +21,7 @@ namespace Korobochka.GoogleSheets
 
         private readonly ISettings _settings;
 
-        public Driver(ISettings settings)
+        public Client(ISettings settings)
         {
             _settings = settings;
             this.SetCredential();
