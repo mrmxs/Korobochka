@@ -4,7 +4,6 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Korobochka.DTOs;
-using Korobochka.Models;
 using Korobochka.Services;
 
 namespace Korobochka.Controllers
@@ -34,7 +33,7 @@ namespace Korobochka.Controllers
             }
         }
 
-        public override ActionResult<PlaceDTO?> Get(int id)
+        public override ActionResult<PlaceDTO> Get(int id)
         {
             try
             {
@@ -54,7 +53,7 @@ namespace Korobochka.Controllers
             try
             {
                 // TODO if wrong data
-                return Ok((PlaceDTO)(_crudService.Create((Place)value))); //spreadsheetinfo - range
+                return Ok((PlaceDTO)(_crudService.Create(value))); //spreadsheetinfo - range
 
             }
             catch (Exception e)
@@ -68,7 +67,7 @@ namespace Korobochka.Controllers
             try
             {
                 // TODO if wrong data?
-                var result = _crudService.Update(id, (Place)value);
+                var result = _crudService.Update(id, value);
                 return Ok((PlaceDTO)result);
             }
             catch (Exception e)

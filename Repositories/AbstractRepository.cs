@@ -222,11 +222,6 @@ namespace Korobochka.Repositories
             return updatedData;
         }
 
-        public virtual void Remove(T itemIn)
-        {
-            throw new NotImplementedException();
-        }
-
         public virtual void Remove(int id)
         {
             var valuesById = this.GSheetSmartGetByID(id);
