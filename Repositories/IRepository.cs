@@ -9,7 +9,6 @@ namespace Korobochka.Repositories
         T Get(int id);
         T Create(T item);
         T Update(int id, T itemIn);
-        void Remove(T itemIn);
         void Remove(int id);
     }
 }

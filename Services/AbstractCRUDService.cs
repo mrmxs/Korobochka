@@ -16,15 +16,10 @@ namespace Korobochka.Services
         }
 
         public virtual IEnumerable<T> Get() => _repository.Get();
-
         public virtual T Get(int id) => _repository.Get(id);
-
         public virtual T Create(D itemIn) => _repository.Create(Convert(itemIn));
-
         public virtual T Update(int id, D itemIn) => _repository.Update(id, Convert(itemIn));
-
         public virtual void Remove(int id) => _repository.Remove(id);
-
         protected abstract T Convert(D itemIn);
     }
 }

@@ -9,6 +9,7 @@ using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using GSheets = Google.Apis.Sheets.v4.SpreadsheetsResource.ValuesResource;
+using Korobochka.GoogleSheets;
 using Korobochka.Models;
 
 namespace Korobochka.Repositories
@@ -22,40 +23,12 @@ namespace Korobochka.Repositories
         private readonly int _sheetId;
 
         public AbstractRepository(
-            IGoogleSheetsSettings settings,
+            GoogleSheets.IDriver driver,
+            GoogleSheets.ISettings settings,
             string sheetRange,
             int sheetId) //TODO mb sheetRange is obsolete
         {
-            UserCredential credential;
-
-            // The file token.json stores the user's access and refresh tokens, and is created
-            // automatically when the authorization flow completes for the first time.
-            const string TokenFolderPath = "token.json";
-            const string TokenPath = "token.json/client_secret.json"; //TODO move to settings
-            // If modifying these scopes, delete your previously saved credentials
-            // at ~/.credentials/sheets.googleapis.com-dotnet-quickstart.json
-            // string[] scopes = { SheetsService.Scope.SpreadsheetsReadonly };
-            string[] scopes = { SheetsService.Scope.Spreadsheets };
-            using (var stream =
-                new FileStream(TokenPath, FileMode.Open, FileAccess.Read))
-            {
-                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    GoogleClientSecrets.Load(stream).Secrets,
-                    scopes,
-                    "user",
-                    CancellationToken.None,
-                    new FileDataStore(TokenFolderPath, true)).Result;
-                Console.WriteLine("Credential file saved to: " + TokenFolderPath);
-            }
-
-            var _applicationName = "Korobochka"; //TODO move to settings
-            // Create Google Sheets API service.
-            _service = new SheetsService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = credential,
-                ApplicationName = _applicationName,
-            });
-
+            _service = driver.Service;
             _spreadsheetId = settings.SpreadsheetId;
             _sheetRange = sheetRange;
             _sheetId = sheetId;
