@@ -37,9 +37,8 @@ namespace Korobochka
             services.AddSingleton<GoogleSheets.ISettings>(sp =>
                 sp.GetRequiredService<IOptions<GoogleSheets.Settings>>().Value);
 
-            services.AddSingleton<GoogleSheets.Client>();
-
-
+            services.AddSingleton<GoogleSheets.IClient, GoogleSheets.Client>();
+           
             services
                 .AddSingleton<PlacesRepository>();
 

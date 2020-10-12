@@ -5,9 +5,11 @@ namespace Korobochka.Repositories
     public class PlacesRepository : AbstractRepository<Place>
     {
         public PlacesRepository(
-            GoogleSheets.IClient driver,
+            GoogleSheets.IClient client,
             GoogleSheets.ISettings settings)
-            : base(driver, settings, settings.PlacesRange, settings.PlacesSheetId)
+            : base(client, settings, settings.Schema.PlacesSheet,
+                $"{settings.Schema.PlacesSheet.Title}!{settings.Schema.PlacesSheet.Range}",
+                settings.Schema.PlacesSheet.Id)
         {
         }
     }

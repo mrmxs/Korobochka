@@ -5,20 +5,27 @@ namespace Korobochka.GoogleSheets
         string ApplicationName { get; set; }
         string Scopes { get; set; }
         string TokenPath { get; set; }
-
-        string SpreadsheetId { get; set; }
-        string PlacesRange { get; set; }
-        int PlacesSheetId { get; set; }
+        SpreadsheetSchema Schema { get; set; }
     }
-    
+
     public class Settings : ISettings
     {
         public string ApplicationName { get; set; }
         public string Scopes { get; set; }
         public string TokenPath { get; set; }
+        public SpreadsheetSchema Schema { get; set; }
+    }
 
+    public class SpreadsheetSchema
+    {
         public string SpreadsheetId { get; set; }
-        public string PlacesRange { get; set; }
-        public int PlacesSheetId { get; set; }
+        public SheetSettings PlacesSheet { get; set; }
+    }
+
+    public class SheetSettings
+    {
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public string Range { get; set; }
     }
 }
