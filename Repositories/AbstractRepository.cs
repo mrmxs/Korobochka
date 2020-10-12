@@ -9,6 +9,7 @@ using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using GSheets = Google.Apis.Sheets.v4.SpreadsheetsResource.ValuesResource;
+using Korobochka.GoogleSheets;
 using Korobochka.Models;
 
 namespace Korobochka.Repositories
@@ -18,48 +19,23 @@ namespace Korobochka.Repositories
     {
         private readonly SheetsService _service;
         private readonly string _spreadsheetId;
-        private readonly string _sheetRange;
+        private readonly GoogleSheets.SheetSettings _sheetSettings;
 
-        public AbstractRepository(IGoogleSheetsSettings settings, string sheetRange) //TODO mb sheetRange is obsolete
+        public AbstractRepository(
+            GoogleSheets.IClient client,
+            GoogleSheets.ISettings settings,
+            GoogleSheets.SheetSettings sheetSettings)
         {
-            UserCredential credential;
-
-            // The file token.json stores the user's access and refresh tokens, and is created
-            // automatically when the authorization flow completes for the first time.
-            const string TokenFolderPath = "token.json";
-            const string TokenPath = "token.json/client_secret.json"; //TODO move to settings
-            // If modifying these scopes, delete your previously saved credentials
-            // at ~/.credentials/sheets.googleapis.com-dotnet-quickstart.json
-            // string[] scopes = { SheetsService.Scope.SpreadsheetsReadonly };
-            string[] scopes = { SheetsService.Scope.Spreadsheets };
-            using (var stream =
-                new FileStream(TokenPath, FileMode.Open, FileAccess.Read))
-            {
-                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    GoogleClientSecrets.Load(stream).Secrets,
-                    scopes,
-                    "user",
-                    CancellationToken.None,
-                    new FileDataStore(TokenFolderPath, true)).Result;
-                Console.WriteLine("Credential file saved to: " + TokenFolderPath);
-            }
-
-            var _applicationName = "Korobochka"; //TODO move to settings
-            // Create Google Sheets API service.
-            _service = new SheetsService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = credential,
-                ApplicationName = _applicationName,
-            });
-
-            _spreadsheetId = settings.SpreadsheetId;
-            _sheetRange = sheetRange;
+            _service = client.Service;
+            _spreadsheetId = settings.Schema.SpreadsheetId;
+            _sheetSettings = sheetSettings;
         }
 
         protected IList<IList<object>> GSheetCollection() //TODO to external file GSheetDriver
         {
             return _service.Spreadsheets.Values
-                .Get(_spreadsheetId, _sheetRange)
+                .Get(spreadsheetId: _spreadsheetId,
+                    range: $"{_sheetSettings.Title}!{_sheetSettings.Range}")
                 .Execute()
                 .Values;
         }
@@ -75,11 +51,10 @@ namespace Korobochka.Repositories
         {
             ValueRange valueRange = new ValueRange();
             valueRange.Values = values;
-            var range = _sheetRange.Split('!')[0];
 
             GSheets.AppendRequest request =
                 _service.Spreadsheets.Values
-                .Append(valueRange, _spreadsheetId, range);
+                .Append(valueRange, _spreadsheetId, _sheetSettings.Title);
             request.ValueInputOption = GSheets.AppendRequest.ValueInputOptionEnum.RAW;
             AppendValuesResponse response = request.Execute();
 
@@ -102,11 +77,33 @@ namespace Korobochka.Repositories
             return response;
         }
 
+        protected void GSheetRemoveRow(int index)
+        {
+            Request requestBody = new Request()
+            {
+                DeleteDimension = new DeleteDimensionRequest()
+                {
+                    Range = new DimensionRange()
+                    {
+                        SheetId = _sheetSettings.Id,
+                        Dimension = "ROWS",
+                        StartIndex = index - 1,
+                        EndIndex = index,
+                    }
+                }
+            };
+
+            BatchUpdateSpreadsheetRequest request = new BatchUpdateSpreadsheetRequest();
+            request.Requests = new List<Request> { requestBody };
+            BatchUpdateSpreadsheetResponse response = new SpreadsheetsResource
+                .BatchUpdateRequest(_service, request, _spreadsheetId)
+                .Execute();
+        }
+
         protected IList<object> GSheetSmartGetByID(int id)
         {
-            var sheetList = _sheetRange.Split('!')[0];
             var ids = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Get(_spreadsheetId, $"{_sheetSettings.Title}!A2:A")
                 .Execute().Values;
 
             var rowIndex = ids?
@@ -114,7 +111,10 @@ namespace Korobochka.Repositories
                 .IndexOf(id) + 2;
             if (2 > rowIndex) return null;
 
-            var range = _sheetRange.Replace("!A2", "!A" + rowIndex);
+            var range = string.Join('!', new string[] {
+                _sheetSettings.Title,
+                _sheetSettings.Range.Replace("A2", "A" + rowIndex)
+            });
             var result = _service.Spreadsheets.Values
                 .Get(_spreadsheetId, range)
                 .Execute().Values[0];
@@ -132,9 +132,8 @@ namespace Korobochka.Repositories
 
         protected int GSheetSmartMaxId()
         {
-            var sheetList = _sheetRange.Split('!')[0];
             var ids = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Get(_spreadsheetId, $"{_sheetSettings.Title}!A2:A")
                 .Execute().Values;
             if (ids == null) return 0;
             var result = ids!.Select(row => int.Parse(row[0].ToString())).Max();
@@ -184,7 +183,10 @@ namespace Korobochka.Repositories
             // TODO place for itemHistory here
 
             var newValues = newItem.ToValues<T>();
-            var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange);
+            var range = string.Join('!', new string[] {
+                _sheetSettings.Title,
+                _sheetSettings.Range.Replace("A2", "A" + oldItem.GSheetRange) // valuesById[7]
+            });
             var response = this.GSheetUpdate(newValues, range);
             var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
 
@@ -194,18 +196,14 @@ namespace Korobochka.Repositories
             return updatedData;
         }
 
-        // public virtual void Remove(T itemIn) =>
-        //     _collection.DeleteOne(item => item.Id == itemIn.Id);
-        public virtual void Remove(T itemIn)
-        {
-            throw new NotImplementedException();
-        }
-
-        // public virtual void Remove(int id) =>
-        //     _collection.DeleteOne(item => item.Id == id);
         public virtual void Remove(int id)
         {
-            throw new NotImplementedException();
+            var valuesById = this.GSheetSmartGetByID(id);
+            if (null == valuesById) throw new Exception($"Not existing id");
+
+            var rowIndex = (int)valuesById[7];
+
+            this.GSheetRemoveRow(rowIndex);
         }
     }
 }

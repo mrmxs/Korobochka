@@ -3,16 +3,14 @@ using Korobochka.Models;
 
 namespace Korobochka.DTOs
 {
-    public class PlaceDTO //: BaseDTO
+    public class PlaceDTO : BaseDTO
     {    
-        public int Id { get; set; } //TODO to baseDto
         public string Name { get; set; }
         public IEnumerable<int> Owner { get; set; }
         public string Address { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public int? Order { get; set; }
-        public string GSheetRange { get; internal set; }
 
         public static explicit operator PlaceDTO(Place model)
         {

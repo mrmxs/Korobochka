@@ -15,6 +15,7 @@ using Microsoft.OpenApi.Models;
 using Korobochka.Repositories;
 using Korobochka.Services;
 using Microsoft.AspNetCore.Mvc.Formatters;
+// using Korobochka.GoogleSheets;
 
 namespace Korobochka
 {
@@ -30,21 +31,23 @@ namespace Korobochka
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<GoogleSheetsSettings>(
-                Configuration.GetSection(nameof(GoogleSheetsSettings)));
-            services.AddSingleton<IGoogleSheetsSettings>(sp =>
-                sp.GetRequiredService<IOptions<GoogleSheetsSettings>>().Value);
+            services.Configure<GoogleSheets.Settings>(Configuration.GetSection(
+                string.Join('.', typeof(GoogleSheets.Settings).FullName.Split('.').TakeLast(2))
+            ));
+            services.AddSingleton<GoogleSheets.ISettings>(sp =>
+                sp.GetRequiredService<IOptions<GoogleSheets.Settings>>().Value);
 
+            services.AddSingleton<GoogleSheets.IClient, GoogleSheets.Client>();
+           
             services
                 .AddSingleton<PlacesRepository>();
 
             services
-                .AddSingleton<PlacesService>();
+                .AddSingleton<PlacesCRUDService>();
 
             services.AddControllers(opt =>  // or AddMvc()
             {
                 // remove formatter that turns nulls into 204 - No Content responses
-                // this formatter breaks Angular's Http response JSON parsing
                 opt.OutputFormatters.RemoveType<HttpNoContentOutputFormatter>();
             });
 
