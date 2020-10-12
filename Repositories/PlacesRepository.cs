@@ -7,9 +7,7 @@ namespace Korobochka.Repositories
         public PlacesRepository(
             GoogleSheets.IClient client,
             GoogleSheets.ISettings settings)
-            : base(client, settings, settings.Schema.PlacesSheet,
-                $"{settings.Schema.PlacesSheet.Title}!{settings.Schema.PlacesSheet.Range}",
-                settings.Schema.PlacesSheet.Id)
+            : base(client, settings, settings.Schema.PlacesSheet)
         {
         }
     }

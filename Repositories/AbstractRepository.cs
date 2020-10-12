@@ -19,26 +19,23 @@ namespace Korobochka.Repositories
     {
         private readonly SheetsService _service;
         private readonly string _spreadsheetId;
-        private readonly string _sheetRange;
-        private readonly int _sheetId;
+        private readonly GoogleSheets.SheetSettings _sheetSettings;
 
         public AbstractRepository(
             GoogleSheets.IClient client,
             GoogleSheets.ISettings settings,
-            GoogleSheets.SheetSettings sheetSettings,
-            string sheetRange,
-            int sheetId) //TODO mb sheetRange is obsolete
+            GoogleSheets.SheetSettings sheetSettings)
         {
             _service = client.Service;
             _spreadsheetId = settings.Schema.SpreadsheetId;
-            _sheetRange = sheetRange;
-            _sheetId = sheetId;
+            _sheetSettings = sheetSettings;
         }
 
         protected IList<IList<object>> GSheetCollection() //TODO to external file GSheetDriver
         {
             return _service.Spreadsheets.Values
-                .Get(_spreadsheetId, _sheetRange)
+                .Get(spreadsheetId: _spreadsheetId,
+                    range: $"{_sheetSettings.Title}!{_sheetSettings.Range}")
                 .Execute()
                 .Values;
         }
@@ -54,11 +51,10 @@ namespace Korobochka.Repositories
         {
             ValueRange valueRange = new ValueRange();
             valueRange.Values = values;
-            var range = _sheetRange.Split('!')[0];
 
             GSheets.AppendRequest request =
                 _service.Spreadsheets.Values
-                .Append(valueRange, _spreadsheetId, range);
+                .Append(valueRange, _spreadsheetId, _sheetSettings.Title);
             request.ValueInputOption = GSheets.AppendRequest.ValueInputOptionEnum.RAW;
             AppendValuesResponse response = request.Execute();
 
@@ -89,7 +85,7 @@ namespace Korobochka.Repositories
                 {
                     Range = new DimensionRange()
                     {
-                        SheetId = _sheetId,
+                        SheetId = _sheetSettings.Id,
                         Dimension = "ROWS",
                         StartIndex = index - 1,
                         EndIndex = index,
@@ -106,9 +102,8 @@ namespace Korobochka.Repositories
 
         protected IList<object> GSheetSmartGetByID(int id)
         {
-            var sheetList = _sheetRange.Split('!')[0];
             var ids = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Get(_spreadsheetId, $"{_sheetSettings.Title}!A2:A")
                 .Execute().Values;
 
             var rowIndex = ids?
@@ -116,7 +111,10 @@ namespace Korobochka.Repositories
                 .IndexOf(id) + 2;
             if (2 > rowIndex) return null;
 
-            var range = _sheetRange.Replace("!A2", "!A" + rowIndex);
+            var range = string.Join('!', new string[] {
+                _sheetSettings.Title,
+                _sheetSettings.Range.Replace("A2", "A" + rowIndex)
+            });
             var result = _service.Spreadsheets.Values
                 .Get(_spreadsheetId, range)
                 .Execute().Values[0];
@@ -134,9 +132,8 @@ namespace Korobochka.Repositories
 
         protected int GSheetSmartMaxId()
         {
-            var sheetList = _sheetRange.Split('!')[0];
             var ids = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, sheetList + "!A2:A")
+                .Get(_spreadsheetId, $"{_sheetSettings.Title}!A2:A")
                 .Execute().Values;
             if (ids == null) return 0;
             var result = ids!.Select(row => int.Parse(row[0].ToString())).Max();
@@ -186,7 +183,10 @@ namespace Korobochka.Repositories
             // TODO place for itemHistory here
 
             var newValues = newItem.ToValues<T>();
-            var range = _sheetRange.Replace("!A2", "!A" + oldItem.GSheetRange); // valuesById[7]
+            var range = string.Join('!', new string[] {
+                _sheetSettings.Title,
+                _sheetSettings.Range.Replace("A2", "A" + oldItem.GSheetRange) // valuesById[7]
+            });
             var response = this.GSheetUpdate(newValues, range);
             var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
 
