@@ -8,6 +8,7 @@ using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Util.Store;
+using Microsoft.Extensions.Logging;
 using static Google.Apis.Sheets.v4.SpreadsheetsResource.ValuesResource;
 
 namespace Korobochka.GoogleSheets
@@ -24,10 +25,12 @@ namespace Korobochka.GoogleSheets
         #endregion
 
         private readonly ISettings _settings;
+        private ILogger _logger;
 
-        public Client(ISettings settings)
+        public Client(ISettings settings, ILogger<Client> logger)
         {
             _settings = settings;
+            _logger = logger;
             this.SetCredential();
             this.SetService(Credential);
         }
@@ -56,8 +59,7 @@ namespace Korobochka.GoogleSheets
                         dataStore: new FileDataStore(folder, fullPath: true)
                     ).Result;
 
-                // TODO logger
-                // Console.WriteLine("Credential file saved to: " + TokenFolderPath);
+                _logger.LogInformation("Credential file saved to: " + folder);
             }
         }
 
