@@ -1,11 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
 
 namespace Korobochka.Models
 {
-
     public abstract class BaseModel
     {
         [Required]
@@ -42,4 +39,3 @@ namespace Korobochka.Models
         }
     }
 }
-

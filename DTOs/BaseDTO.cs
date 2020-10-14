@@ -6,4 +6,3 @@ namespace Korobochka.DTOs
         public string GSheetRange { get; internal set; }
     }
 }
-
