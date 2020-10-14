@@ -1,14 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
-using System.Threading;
-using Google.Apis.Auth.OAuth2;
-using Google.Apis.Sheets.v4;
-using Google.Apis.Sheets.v4.Data;
-using Google.Apis.Services;
-using Google.Apis.Util.Store;
-using GSheets = Google.Apis.Sheets.v4.SpreadsheetsResource.ValuesResource;
+﻿using System.Collections.Generic;
 using Korobochka.GoogleSheets;
 using Korobochka.Models;
 
@@ -17,193 +7,28 @@ namespace Korobochka.Repositories
     public abstract class AbstractRepository<T>
         : IRepository<T> where T : BaseModel, new()
     {
-        private readonly SheetsService _service;
-        private readonly string _spreadsheetId;
-        private readonly GoogleSheets.SheetSettings _sheetSettings;
+        private GoogleSheets.ICollectionClient<T> _client;
 
         public AbstractRepository(
             GoogleSheets.IClient client,
             GoogleSheets.ISettings settings,
             GoogleSheets.SheetSettings sheetSettings)
         {
-            _service = client.Service;
-            _spreadsheetId = settings.Schema.SpreadsheetId;
-            _sheetSettings = sheetSettings;
+            _client = new CollectionClient<T>(
+                client: client,
+                spreadsheetId: settings.Schema.SpreadsheetId,
+                sheetSettings: sheetSettings
+            );
         }
 
-        protected IList<IList<object>> GSheetCollection() //TODO to external file GSheetDriver
-        {
-            return _service.Spreadsheets.Values
-                .Get(spreadsheetId: _spreadsheetId,
-                    range: $"{_sheetSettings.Title}!{_sheetSettings.Range}")
-                .Execute()
-                .Values;
-        }
-        protected IList<IList<object>> GSheetGetRange(string range) //TODO to external file GSheetDriver
-        {
-            return _service.Spreadsheets.Values
-                .Get(_spreadsheetId, range)
-                .Execute()
-                .Values;
-        }
+        public virtual IEnumerable<T> Get() => _client.Find();
 
-        protected UpdateValuesResponse GSheetAppend(List<IList<object>> values)
-        {
-            ValueRange valueRange = new ValueRange();
-            valueRange.Values = values;
+        public virtual T Get(int id) => _client.Find(id);
 
-            GSheets.AppendRequest request =
-                _service.Spreadsheets.Values
-                .Append(valueRange, _spreadsheetId, _sheetSettings.Title);
-            request.ValueInputOption = GSheets.AppendRequest.ValueInputOptionEnum.RAW;
-            AppendValuesResponse response = request.Execute();
+        public virtual T Create(T item) => _client.InsertOne(item);
 
-            return response.Updates;
-        }
+        public virtual T Update(int id, T itemIn) => _client.ReplaceOne(id, itemIn);
 
-        protected UpdateValuesResponse GSheetUpdate(List<object> values, string range)
-        {
-            // String range2 = "<my page name>!F5";  // update cell F5 
-            ValueRange valueRange = new ValueRange();
-            valueRange.MajorDimension = "ROWS";//COLUMNS
-            // var oblist = new List<object>() { "My Cell Text" };
-            valueRange.Values = new List<IList<object>> { values };
-
-            GSheets.UpdateRequest update =
-                _service.Spreadsheets.Values.Update(valueRange, _spreadsheetId, range);
-            update.ValueInputOption = GSheets.UpdateRequest.ValueInputOptionEnum.RAW;
-            UpdateValuesResponse response = update.Execute();
-
-            return response;
-        }
-
-        protected void GSheetRemoveRow(int index)
-        {
-            Request requestBody = new Request()
-            {
-                DeleteDimension = new DeleteDimensionRequest()
-                {
-                    Range = new DimensionRange()
-                    {
-                        SheetId = _sheetSettings.Id,
-                        Dimension = "ROWS",
-                        StartIndex = index - 1,
-                        EndIndex = index,
-                    }
-                }
-            };
-
-            BatchUpdateSpreadsheetRequest request = new BatchUpdateSpreadsheetRequest();
-            request.Requests = new List<Request> { requestBody };
-            BatchUpdateSpreadsheetResponse response = new SpreadsheetsResource
-                .BatchUpdateRequest(_service, request, _spreadsheetId)
-                .Execute();
-        }
-
-        protected IList<object> GSheetSmartGetByID(int id)
-        {
-            var ids = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, $"{_sheetSettings.Title}!A2:A")
-                .Execute().Values;
-
-            var rowIndex = ids?
-                .Select(row => int.Parse(row[0].ToString())).ToList()
-                .IndexOf(id) + 2;
-            if (2 > rowIndex) return null;
-
-            var range = string.Join('!', new string[] {
-                _sheetSettings.Title,
-                _sheetSettings.Range.Replace("A2", "A" + rowIndex)
-            });
-            var result = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, range)
-                .Execute().Values[0];
-            result.Add(rowIndex);
-
-            return result;
-        }
-
-        protected int GSheetMaxId()
-        {
-            //TODO get MAX(A:A) from sheets or GetByDataFilter()
-            return new T().FromValues<T>(
-                this.GSheetCollection().Last()).Id;
-        }
-
-        protected int GSheetSmartMaxId()
-        {
-            var ids = _service.Spreadsheets.Values
-                .Get(_spreadsheetId, $"{_sheetSettings.Title}!A2:A")
-                .Execute().Values;
-            if (ids == null) return 0;
-            var result = ids!.Select(row => int.Parse(row[0].ToString())).Max();
-
-            return result;
-        }
-
-        public virtual IEnumerable<T> Get()
-        {
-            var result = this.GSheetCollection();
-
-            var res = result?
-                .Where(row => row.Any())?
-                .Select(row => new T().FromValues<T>(row));
-
-            return res ?? new List<T>();
-        }
-
-        public virtual T Get(int id) =>  // TODO optimise to search through index
-            this.Get().ToList().Find(item => item?.Id == id);
-
-        public virtual T Create(T item)
-        {
-            item.Id = this.GSheetSmartMaxId() + 1;
-            // TODO order
-
-            var appended = this.GSheetAppend(
-                values: new List<IList<object>> { item.ToValues<T>() });
-            var appendedValues = this.GSheetGetRange(appended.UpdatedRange).First();
-
-            var result = new T().FromValues<T>(appendedValues);
-            result.GSheetRange = appended.UpdatedRange;
-
-            return result;
-        }
-
-        public virtual T Update(int id, T itemIn)
-        {
-            var valuesById = this.GSheetSmartGetByID(id);
-            if (null == valuesById) throw new Exception($"Not existing id");
-
-            var oldItem = new T().FromValues<T>(valuesById);
-            var newItem = oldItem.Merge(itemIn);
-
-            if (oldItem.MemberwiseEquals(newItem)) return oldItem;
-
-            // TODO place for itemHistory here
-
-            var newValues = newItem.ToValues<T>();
-            var range = string.Join('!', new string[] {
-                _sheetSettings.Title,
-                _sheetSettings.Range.Replace("A2", "A" + oldItem.GSheetRange) // valuesById[7]
-            });
-            var response = this.GSheetUpdate(newValues, range);
-            var updatedValues = this.GSheetGetRange(response.UpdatedRange)[0];
-
-            var updatedData = new T().FromValues<T>(updatedValues);
-            updatedData.GSheetRange = response.UpdatedRange;
-
-            return updatedData;
-        }
-
-        public virtual void Remove(int id)
-        {
-            var valuesById = this.GSheetSmartGetByID(id);
-            if (null == valuesById) throw new Exception($"Not existing id");
-
-            var rowIndex = (int)valuesById[7];
-
-            this.GSheetRemoveRow(rowIndex);
-        }
+        public virtual void Remove(int id) => _client.DeleteOne(id);
     }
 }
